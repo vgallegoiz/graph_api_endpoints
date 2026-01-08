@@ -1,7 +1,7 @@
 import requests
 import json
 
-class EntraIDAuth:
+class GraphAPI:
     def __init__(self, ClientID, ClientSecret, TenantID):
         self.ClientID = ClientID
         self.ClientSecret = ClientSecret
@@ -25,33 +25,44 @@ class EntraIDAuth:
         
         self.token = data["access_token"]
 
-    def listInfo(self, endpoint_version, endpoint, filter, query):
+    def getInfo(self, endpoint):
         headers = {
             "Authorization": f"Bearer {self.token}"
         }
-        self.url = f"{self.url}/{endpoint_version}{endpoint}"
-        try:
-            response = requests.get(self.url, headers=headers)
-        except Exception as e:
-            print(e)
-        return response
 
+        base_url = f"{self.url}{endpoint}"
+        url = base_url
 
+        all_data = []
 
-if __name__ == "__main__":
+        while url:
+            try:
+                response = requests.get(url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
 
-    #filter = "$select=extensionAttributes"
-    filter = ""
-    #filter = "$select=displayName,id,lastPasswordChangeDateTime,signInActivity"
-    endpoint = "/security/secureScores"
-    query = ""
-    endpoint_version = "v1.0"
+                if 'value' in data:
+                    all_data.extend(data['value'])
+                else: #In case it does not have a 'value', only an object
+                    all_data.append(data)
+                    break
 
-    test = EntraIDAuth(ClientID, ClientSecret, TenantID)
-    test.getAuthToken()
-    data = test.getInfo(endpoint_version, endpoint, filter, query)
-    '''endpoint = "/security/secureScores/7092f324-5b8d-44e1-bb7a-4c14c647727c"
-    data = test.getInfo(endpoint_version, endpoint, filter, query)'''
-    data = data.json()
-    with open("./test.json", 'w', encoding='utf-8') as f:
-        json.dump(data['value'][0], f, ensure_ascii=False, indent=4)
+                url = data.get('@odata.nextLink')
+
+                if not url:
+                    break
+
+            except requests.exceptions.RequestException as e:
+                print(f"Error al realizar solicitud a Microsoft Graph: {e}")
+                if hasattr(e, 'response') and e.response is not None:
+                    print(f"Detalle del error: {e.response.text}")
+                break
+            except ValueError as e:
+                print("Error: Respuesta JSON inválida")
+                print(response.text)
+                break
+            except Exception as e:
+                print(f"Error inesperado: {e}")
+                break
+
+        return all_data

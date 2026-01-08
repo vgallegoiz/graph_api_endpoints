@@ -71,7 +71,7 @@
         "inputs": {
             "services": [
                 {
-                    "name": "microsoft_entra_id_auth_methods",
+                    "name": "graph_api_endpoints",
                     "entity": [
                         {
                             "type": "text",
@@ -133,14 +133,14 @@
                         },
                         {
                             "type": "text",
-                            "label": "Query Parameters (optional)",
-                            "field": "filter",
-                            "help": "Example: $filter=startswith(displayName,'a')",
-                            "required": false
+                            "label": "Endpoint with query Parameters (optional)",
+                            "field": "endpoint",
+                            "help": "Example: /users or /users$filter=startswith(displayName,'a')",
+                            "required": true
                         }
                     ],
-                    "inputHelperModule": "microsoft_entra_id_auth_methods_helper",
-                    "title": "microsoft_entra_id_auth_methods"
+                    "inputHelperModule": "graph_api_endpoints_helper",
+                    "title": "listInfo"
                 }
             ],
             "title": "Inputs",
@@ -189,6 +189,10 @@
                             "true": "Inactive",
                             "false": "Active"
                         }
+                    },
+                    {
+                        "label": "Endpoint",
+                        "field": "endpoint"
                     }
                 ]
             }
@@ -202,11 +206,11 @@
         }
     },
     "meta": {
-        "name": "graph_api_generic",
-        "restRoot": "graph_api_generic",
-        "version": "0.0.1",
+        "name": "graph_api_endpoints",
+        "restRoot": "graph_api_endpoints",
+        "version": "0.0.6",
         "displayName": "Microsoft Graph API generic Add-on",
-        "schemaVersion": "0.0.8",
+        "schemaVersion": "0.0.10",
         "supportedThemes": [
             "light",
             "dark"
