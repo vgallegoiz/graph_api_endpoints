@@ -65,7 +65,7 @@ class Input(smi.Script):
                 tenant_id = input_item.get("tenant_id")
                 endpoint = input_item.get("endpoint")
                 index = input_item.get("index")
-                sourcetype = input_item.get("sourcetype", "msgraph:generic")  # Valor por defecto
+                sourcetype = input_item.get("sourcetype") if input_item.get("sourcetype") else "msgraph:generic"
 
                 if not all([account_name, tenant_id, endpoint, index]):
                     logger.error("Missing required parameters: account, tenant_id, endpoint or index")

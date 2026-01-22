@@ -107,6 +107,11 @@
                             "label": "Index"
                         },
                         {
+                            "type": "sourcetype",
+                            "field": "sourcetype",
+                            "label": "Sourcetype"
+                        },
+                        {
                             "type": "singleSelect",
                             "label": "Azure App Account",
                             "options": {
