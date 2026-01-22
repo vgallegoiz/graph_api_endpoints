@@ -65,4 +65,4 @@ class GraphAPI:
                 print(f"Error inesperado: {e}")
                 break
 
-        return all_data
+        return all_data, response.status_code

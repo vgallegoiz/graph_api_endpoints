@@ -68,18 +68,18 @@ class Input(smi.Script):
                 sourcetype = input_item.get("sourcetype") if input_item.get("sourcetype") else "msgraph:generic"
 
                 if not all([account_name, tenant_id, endpoint, index]):
-                    logger.error("Missing required parameters: account, tenant_id, endpoint or index")
+                    logger.info("Missing required parameters: account, tenant_id, endpoint or index")
                     continue
 
                 # Obtener credenciales
                 try:
                     client_secret, client_id = get_account_info(session_key, account_name)
                 except Exception as e:
-                    logger.error(f"Failed to retrieve credentials for account {account_name}: {e}")
+                    logger.info(f"Failed to retrieve credentials for account {account_name}: {e}")
                     continue
 
                 if not all([client_id, client_secret]):
-                    logger.error("Client ID or Secret is empty")
+                    logger.info("Client ID or Secret is empty")
                     continue
 
                 logger.info(f"Initializing GraphAPI for input: {normalized_input_name} | Endpoint: {endpoint}")
@@ -91,16 +91,16 @@ class Input(smi.Script):
                     graph.getAuthToken()
                     logger.info("Access token obtained successfully")
                 except Exception as e:
-                    logger.error("Failed to authenticate with Microsoft Entra ID")
-                    log.log_exception(logger, e, msg_before="Authentication failure")
+                    logger.info("Failed to authenticate with Microsoft Entra ID")
+                    log.log_exception(logger, e, exc_label=ADDON_NAME, msg_before="Authentication failure")
                     continue
 
                 try:
-                    records = graph.getInfo(endpoint)  # ¡Aquí usamos listInfo!
-                    logger.info(f"Retrieved {len(records)} records from {endpoint}")
+                    records, status_code = graph.getInfo(endpoint)
+                    logger.info(f"Retrieved {len(records)} records from {endpoint} with {status_code} as status_code")
                 except Exception as e:
-                    logger.error(f"Failed to fetch data from endpoint {endpoint}")
-                    log.log_exception(logger, e, msg_before="Graph API request failure")
+                    logger.info(f"Failed to fetch data from endpoint {endpoint}")
+                    log.log_exception(logger, e, exc_label=ADDON_NAME, msg_before="Graph API request failure")
                     continue
 
                 # Ingestión en Splunk
@@ -131,8 +131,8 @@ class Input(smi.Script):
                 log.modular_input_end(logger, normalized_input_name)
 
             except Exception as e:
-                logger.error("Unexpected error in modular input execution")
-                log.log_exception(logger, e, msg_before=f"Critical error in input {normalized_input_name}")
+                logger.info("Unexpected error in modular input execution")
+                log.log_exception(logger, e, exc_label=ADDON_NAME, msg_before=f"Critical error in input {normalized_input_name}")
 
 if __name__ == "__main__":
     exit_code = Input().run(sys.argv)
