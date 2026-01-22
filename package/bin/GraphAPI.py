@@ -30,39 +30,60 @@ class GraphAPI:
             "Authorization": f"Bearer {self.token}"
         }
 
-        base_url = f"{self.url}{endpoint}"
+        base_url = f"{self.url.rstrip('/')}/{endpoint.lstrip('/')}"
         url = base_url
 
         all_data = []
+        final_status = None
+        last_response = None
 
         while url:
             try:
                 response = requests.get(url, headers=headers)
-                response.raise_for_status()
-                data = response.json()
+                final_status = response.status_code
+                last_response = response
 
-                if 'value' in data:
-                    all_data.extend(data['value'])
-                else: #In case it does not have a 'value', only an object
-                    all_data.append(data)
-                    break
+                if response.status_code == 200:
+                    data = response.json()
 
-                url = data.get('@odata.nextLink')
+                    if 'value' in data:
+                        all_data.extend(data['value'])
+                    else:
+                        # Caso de endpoint que devuelve un solo objeto (no colección)
+                        all_data.append(data)
+                        break
 
-                if not url:
-                    break
+                    url = data.get('@odata.nextLink')
+                    if not url:
+                        break
+
+                else:
+                    # Si NO es 200 → devolvemos directamente el JSON de error
+                    try:
+                        error_data = response.json()
+                    except ValueError:
+                        error_data = {
+                            "error": "non_json_response",
+                            "status_code": response.status_code,
+                            "raw_content": response.text[:1000]  # limitamos para no saturar
+                        }
+                    
+                    return error_data, response.status_code
 
             except requests.exceptions.RequestException as e:
-                print(f"Error al realizar solicitud a Microsoft Graph: {e}")
+                print(f"Error de red/conexión: {e}")
                 if hasattr(e, 'response') and e.response is not None:
-                    print(f"Detalle del error: {e.response.text}")
-                break
+                    print(f"Respuesta: {e.response.text[:500]}")
+                return {"error": "request_exception", "detail": str(e)}, 0
+
             except ValueError as e:
-                print("Error: Respuesta JSON inválida")
-                print(response.text)
-                break
+                print("Error: Respuesta no es JSON válido")
+                print(response.text[:500])
+                return {"error": "invalid_json", "raw_content": response.text[:1000]}, response.status_code
+
             except Exception as e:
                 print(f"Error inesperado: {e}")
-                break
+                return {"error": "unexpected_error", "detail": str(e)}, 0
 
-        return all_data, response.status_code
+        # Solo llegamos aquí si todo fueron 200 OK
+        return all_data, final_status or 200

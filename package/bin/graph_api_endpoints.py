@@ -22,7 +22,7 @@ def get_account_info(session_key: str, account_name: str):
         ADDON_NAME,
         realm=f"__REST_CREDENTIAL__#{ADDON_NAME}#configs/conf-graph_api_endpoints_account",
     )
-    account_conf_file = cfm.get_conf("graph_api_endpoints_account")  # Nombre coherente con el addon
+    account_conf_file = cfm.get_conf("graph_api_endpoints_account")
     credentials = account_conf_file.get(account_name)
     if not credentials:
         raise ValueError(f"Account '{account_name}' not found")
@@ -62,10 +62,10 @@ class Input(smi.Script):
 
                 # Parámetros del input
                 account_name = input_item.get("account")
-                tenant_id = input_item.get("tenant_id")
-                endpoint = input_item.get("endpoint")
-                index = input_item.get("index")
-                sourcetype = input_item.get("sourcetype") if input_item.get("sourcetype") else "msgraph:generic"
+                tenant_id   = input_item.get("tenant_id")
+                endpoint    = input_item.get("endpoint")
+                index       = input_item.get("index")
+                sourcetype  = input_item.get("sourcetype") if input_item.get("sourcetype") else "msgraph:generic"
 
                 if not all([account_name, tenant_id, endpoint, index]):
                     logger.info("Missing required parameters: account, tenant_id, endpoint or index")
@@ -84,7 +84,7 @@ class Input(smi.Script):
 
                 logger.info(f"Initializing GraphAPI for input: {normalized_input_name} | Endpoint: {endpoint}")
 
-                # Autenticación y llamada
+                # Autenticación
                 graph = GraphAPI(client_id, client_secret, tenant_id)
 
                 try:
@@ -95,20 +95,41 @@ class Input(smi.Script):
                     log.log_exception(logger, e, exc_label=ADDON_NAME, msg_before="Authentication failure")
                     continue
 
+                # Llamada al endpoint + logging unificado
                 try:
                     records, status_code = graph.getInfo(endpoint)
-                    logger.info(f"Retrieved {len(records)} records from {endpoint} with {status_code} as status_code")
+
+                    if status_code == 200:
+                        count = len(records) if isinstance(records, list) else 0
+                        logger.info(
+                            f"Graph API call succeeded | endpoint={endpoint} | "
+                            f"status={status_code} | records={count}"
+                        )
+                    else:
+                        # Error devuelto por Graph API → mostramos el cuerpo
+                        error_summary = json.dumps(records, ensure_ascii=False, indent=None)
+                        if len(error_summary) > 2000:
+                            error_summary = error_summary[:1950] + "... [truncated]"
+
+                        logger.info(
+                            f"Graph API call failed | endpoint={endpoint} | "
+                            f"status={status_code} | error_response={error_summary}"
+                        )
+                        continue  # No intentamos ingestar
+
                 except Exception as e:
-                    logger.info(f"Failed to fetch data from endpoint {endpoint}")
+                    logger.info(
+                        f"Exception during Graph API call | endpoint={endpoint} | "
+                        f"exception={str(e)}"
+                    )
                     log.log_exception(logger, e, exc_label=ADDON_NAME, msg_before="Graph API request failure")
                     continue
 
-                # Ingestión en Splunk
-                if records:
+                # Ingestión (solo si fue exitoso)
+                if records and isinstance(records, list) and len(records) > 0:
                     current_time = datetime.utcnow().isoformat()
 
                     for record in records:
-                        # Añadimos metadatos útiles
                         record.update({
                             "input_name": normalized_input_name,
                             "graph_endpoint": endpoint
@@ -124,14 +145,14 @@ class Input(smi.Script):
 
                         event_writer.write_event(event)
 
-                    logger.info(f"Ingested {len(records)} events into Splunk")
+                    logger.info(f"Ingested {len(records)} events into Splunk index={index}")
                 else:
-                    logger.warning("No records returned from the endpoint")
+                    logger.info("No records to ingest (empty or invalid result)")
 
                 log.modular_input_end(logger, normalized_input_name)
 
             except Exception as e:
-                logger.info("Unexpected error in modular input execution")
+                logger.info(f"Unexpected error in modular input {normalized_input_name}: {str(e)}")
                 log.log_exception(logger, e, exc_label=ADDON_NAME, msg_before=f"Critical error in input {normalized_input_name}")
 
 if __name__ == "__main__":
